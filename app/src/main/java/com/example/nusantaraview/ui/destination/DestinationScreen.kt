@@ -18,6 +18,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.example.nusantaraview.data.remote.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
+import kotlinx.coroutines.launch
 import kotlinx.serialization.InternalSerializationApi
 import java.text.NumberFormat
 import java.util.Locale
@@ -30,12 +33,21 @@ fun DestinationScreen(
     val destinations by viewModel.destinations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
+    // Ambil current user ID
+    val scope = rememberCoroutineScope()
+    var currentUserId by remember { mutableStateOf<String?>(null) }
+
     // State untuk dialog edit
     var destinationToEdit by remember { mutableStateOf<com.example.nusantaraview.data.model.Destination?>(null) }
 
     // Load data saat pertama kali dibuka
     LaunchedEffect(Unit) {
         viewModel.fetchDestinations()
+
+        // Ambil user ID yang sedang login
+        scope.launch {
+            currentUserId = SupabaseClient.client.auth.currentUserOrNull()?.id
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -57,6 +69,7 @@ fun DestinationScreen(
                 items(destinations) { destination ->
                     DestinationItem(
                         destination = destination,
+                        currentUserId = currentUserId,
                         onEditClick = { destinationToEdit = destination }
                     )
                 }
@@ -77,8 +90,12 @@ fun DestinationScreen(
 @Composable
 fun DestinationItem(
     destination: com.example.nusantaraview.data.model.Destination,
+    currentUserId: String?,
     onEditClick: () -> Unit
 ) {
+    // Cek apakah user ini adalah pemilik destinasi
+    val isOwner = currentUserId != null && destination.userId == currentUserId
+
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         modifier = Modifier.fillMaxWidth()
@@ -137,18 +154,20 @@ fun DestinationItem(
                 }
             }
 
-            // Icon Edit di kanan bawah
-            IconButton(
-                onClick = onEditClick,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.primary
-                )
+            // Icon Edit HANYA muncul jika user adalah pemilik
+            if (isOwner) {
+                IconButton(
+                    onClick = onEditClick,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
     }
