@@ -1,18 +1,22 @@
 package com.example.nusantaraview.ui.destination
 
+import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nusantaraview.data.model.Destination
 import com.example.nusantaraview.data.remote.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.InternalSerializationApi
 import java.util.UUID
 
+@OptIn(InternalSerializationApi::class)
 class DestinationViewModel : ViewModel() {
 
     private val _destinations = MutableStateFlow<List<Destination>>(emptyList())
@@ -28,10 +32,12 @@ class DestinationViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Select data dari tabel 'destinations'
                 val data = SupabaseClient.client.from("destinations")
-                    .select().decodeList<Destination>()
+                    .select()
+                    .decodeList<Destination>()
+
                 _destinations.value = data
+                Log.d("DestinationVM", "Berhasil fetch ${data.size} destinasi")
             } catch (e: Exception) {
                 _errorMessage.value = "Gagal mengambil data: ${e.message}"
                 Log.e("DestinationVM", "Fetch Error: ${e.message}")
@@ -41,13 +47,116 @@ class DestinationViewModel : ViewModel() {
         }
     }
 
-    fun addDestination(name: String, location: String, price: String, description: String, imageUri: Uri?, context: android.content.Context) {
+    fun updateDestination(
+        destination: Destination,
+        newName: String,
+        newLocation: String,
+        newPrice: String,
+        newDescription: String,
+        newImageUri: Uri?,
+        context: Context
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                var finalImageUrl = destination.imageUrl
+
+                // Upload gambar baru jika ada
+                if (newImageUri != null) {
+                    val byteArray = context.contentResolver.openInputStream(newImageUri)?.use {
+                        it.readBytes()
+                    }
+                    if (byteArray != null) {
+                        val fileName = "destinations/${UUID.randomUUID()}.jpg"
+                        val bucket = SupabaseClient.client.storage.from("images")
+                        bucket.upload(fileName, byteArray)
+                        finalImageUrl = bucket.publicUrl(fileName)
+                        Log.d("DestinationVM", "Gambar baru berhasil diupload: $finalImageUrl")
+                    }
+                }
+
+                val ticketPriceValue = newPrice.toIntOrNull() ?: 0
+
+                // PENTING: Pastikan user_id tidak berubah!
+                val finalUserId = destination.userId
+                    ?: SupabaseClient.client.auth.currentUserOrNull()?.id
+                    ?: throw Exception("User ID tidak ditemukan")
+
+                // Gunakan data class Destination untuk update
+                val updatedDestination = Destination(
+                    id = destination.id,
+                    name = newName,
+                    location = newLocation,
+                    ticketPrice = ticketPriceValue,
+                    description = newDescription.ifBlank { null },
+                    imageUrl = finalImageUrl,
+                    userId = finalUserId,
+                    createdAt = destination.createdAt
+                )
+
+                Log.d("DestinationVM", "Updating destination ID: ${destination.id}")
+                Log.d("DestinationVM", "Updated data: $updatedDestination")
+
+                SupabaseClient.client.from("destinations")
+                    .update(updatedDestination) {
+                        filter {
+                            eq("id", destination.id ?: "")
+                        }
+                    }
+
+                Log.d("DestinationVM", "✅ Destinasi berhasil diupdate!")
+
+                // Refresh data
+                fetchDestinations()
+
+            } catch (e: Exception) {
+                Log.e("DestinationVM", "❌ Error updating destination: ${e.message}", e)
+                _errorMessage.value = "Gagal mengupdate destinasi: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteDestination(destinationId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                Log.d("DestinationVM", "Deleting destination with ID: $destinationId")
+
+                SupabaseClient.client.from("destinations")
+                    .delete {
+                        filter {
+                            eq("id", destinationId)
+                        }
+                    }
+
+                Log.d("DestinationVM", "✅ Destinasi berhasil dihapus!")
+                fetchDestinations()
+
+            } catch (e: Exception) {
+                Log.e("DestinationVM", "Error deleting destination: ${e.message}", e)
+                _errorMessage.value = "Gagal menghapus destinasi: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun addDestination(
+        name: String,
+        location: String,
+        price: String,
+        description: String,
+        imageUri: Uri?,
+        context: Context
+    ) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
                 var finalImageUrl: String? = null
 
-                // 1. Upload Gambar
+                // 1. Upload Gambar ke Storage
                 if (imageUri != null) {
                     val byteArray = context.contentResolver.openInputStream(imageUri)?.use {
                         it.readBytes()
@@ -57,34 +166,51 @@ class DestinationViewModel : ViewModel() {
                         val bucket = SupabaseClient.client.storage.from("images")
                         bucket.upload(fileName, byteArray)
                         finalImageUrl = bucket.publicUrl(fileName)
+                        Log.d("DestinationVM", "Gambar berhasil diupload: $finalImageUrl")
                     }
                 }
 
-                // 2. Konversi Harga (String -> Long)
-                // Jika input kosong atau bukan angka, anggap 0
-                val ticketPriceVal = price.toLongOrNull() ?: 0L
+                // 2. Ambil User ID yang sedang login
+                val currentUser = SupabaseClient.client.auth.currentUserOrNull()
 
-                // 3. Buat Objek Data
+                if (currentUser == null) {
+                    Log.e("DestinationVM", "ERROR: User tidak login!")
+                    throw Exception("Anda harus login terlebih dahulu")
+                }
+
+                val currentUserId = currentUser.id
+                Log.d("DestinationVM", "✅ Current User ID: $currentUserId")
+                Log.d("DestinationVM", "✅ User Email: ${currentUser.email}")
+
+                // 3. Konversi Harga ke Int
+                val ticketPriceValue = price.toIntOrNull() ?: 0
+
+                // 4. Buat objek Destination (JANGAN pakai Map!)
                 val newDestination = Destination(
+                    id = null,  // Biar auto-generate
                     name = name,
                     location = location,
-                    price = ticketPriceVal, // Kirim sebagai angka
-                    description = description,
-                    imageUrl = finalImageUrl
+                    ticketPrice = ticketPriceValue,
+                    description = description.ifBlank { null },
+                    imageUrl = finalImageUrl,
+                    userId = currentUserId,
+                    createdAt = null  // Biar auto-generate
                 )
 
-                // Debug: Cek di Logcat apa yang dikirim
-                Log.d("DestinationVM", "Mencoba simpan: $newDestination")
+                Log.d("DestinationVM", "Data yang akan disimpan: $newDestination")
 
-                // 4. Kirim ke Supabase
-                SupabaseClient.client.from("destinations").insert(newDestination)
+                // 5. Insert ke Supabase
+                SupabaseClient.client.from("destinations")
+                    .insert(newDestination)
 
-                // 5. Refresh data
+                Log.d("DestinationVM", "Destinasi berhasil ditambahkan!")
+
+                // 6. Refresh data langsung setelah berhasil
                 fetchDestinations()
 
             } catch (e: Exception) {
-                Log.e("DestinationVM", "Error adding: ${e.message}")
-                _errorMessage.value = "Gagal menambah: ${e.message}"
+                Log.e("DestinationVM", "Error adding destination: ${e.message}", e)
+                _errorMessage.value = "Gagal menambahkan destinasi: ${e.message}"
             } finally {
                 _isLoading.value = false
             }

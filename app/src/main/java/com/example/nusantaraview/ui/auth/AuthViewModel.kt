@@ -24,8 +24,17 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 val session = SupabaseClient.client.auth.currentSessionOrNull()
-                _isLoggedIn.value = session != null
+                val user = SupabaseClient.client.auth.currentUserOrNull()
+
+                Log.d("AuthViewModel", "=== CHECK LOGIN STATUS ===")
+                Log.d("AuthViewModel", "Session: ${if (session != null) "EXISTS" else "NULL"}")
+                Log.d("AuthViewModel", "User ID: ${user?.id}")
+                Log.d("AuthViewModel", "User Email: ${user?.email}")
+                Log.d("AuthViewModel", "==========================")
+
+                _isLoggedIn.value = session != null && user != null
             } catch (e: Exception) {
+                Log.e("AuthViewModel", "Check login error: ${e.message}")
                 _isLoggedIn.value = false
             }
         }
@@ -35,14 +44,23 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
+                Log.d("AuthViewModel", "Attempting login with: $email")
+
                 SupabaseClient.client.auth.signInWith(Email) {
                     this.email = email
                     this.password = password
                 }
+
+                val user = SupabaseClient.client.auth.currentUserOrNull()
+                Log.d("AuthViewModel", "✅ Login SUCCESS!")
+                Log.d("AuthViewModel", "User ID: ${user?.id}")
+                Log.d("AuthViewModel", "Email: ${user?.email}")
+
                 _isLoggedIn.value = true
                 _authState.value = AuthState.Success
                 _errorMessage.value = null
             } catch (e: Exception) {
+                Log.e("AuthViewModel", "❌ Login FAILED: ${e.message}")
                 _authState.value = AuthState.Error
                 _errorMessage.value = e.message ?: "Login failed"
             }
@@ -53,16 +71,19 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
+                Log.d("AuthViewModel", "Attempting register with: $emailInput")
+
                 SupabaseClient.client.auth.signUpWith(Email) {
                     this.email = emailInput
                     this.password = passwordInput
                 }
 
-                // HAPUS baris: _isLoggedIn.value = true
-                // KITA HANYA set status sukses, tapi user belum dianggap login
+                Log.d("AuthViewModel", "✅ Register SUCCESS! Check email for verification.")
+
                 _authState.value = AuthState.Success
                 _errorMessage.value = null
             } catch (e: Exception) {
+                Log.e("AuthViewModel", "❌ Register FAILED: ${e.message}")
                 _authState.value = AuthState.Error
                 _errorMessage.value = e.message ?: "Registration failed"
             }
@@ -72,13 +93,12 @@ class AuthViewModel : ViewModel() {
     fun logout() {
         viewModelScope.launch {
             try {
+                Log.d("AuthViewModel", "Attempting logout...")
                 SupabaseClient.client.auth.signOut()
+                Log.d("AuthViewModel", "✅ Logout SUCCESS")
             } catch (e: Exception) {
-                // Jika logout di server gagal (misal koneksi putus), biarkan saja
-                // tapi catat errornya di Logcat
                 Log.e("AuthViewModel", "Logout error: ${e.message}")
             } finally {
-                // PENTING: Apa pun yang terjadi, paksa status di aplikasi jadi "Keluar"
                 _isLoggedIn.value = false
                 _authState.value = AuthState.Idle
                 _errorMessage.value = null
