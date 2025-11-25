@@ -1,5 +1,6 @@
 package com.example.nusantaraview.ui.auth
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nusantaraview.data.remote.SupabaseClient
@@ -48,15 +49,17 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun register(email: String, password: String) {
+    fun register(emailInput: String, passwordInput: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             try {
                 SupabaseClient.client.auth.signUpWith(Email) {
-                    this.email = email
-                    this.password = password
+                    this.email = emailInput
+                    this.password = passwordInput
                 }
-                _isLoggedIn.value = true
+
+                // HAPUS baris: _isLoggedIn.value = true
+                // KITA HANYA set status sukses, tapi user belum dianggap login
                 _authState.value = AuthState.Success
                 _errorMessage.value = null
             } catch (e: Exception) {
@@ -70,9 +73,15 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 SupabaseClient.client.auth.signOut()
-                _isLoggedIn.value = false
             } catch (e: Exception) {
-                _errorMessage.value = e.message
+                // Jika logout di server gagal (misal koneksi putus), biarkan saja
+                // tapi catat errornya di Logcat
+                Log.e("AuthViewModel", "Logout error: ${e.message}")
+            } finally {
+                // PENTING: Apa pun yang terjadi, paksa status di aplikasi jadi "Keluar"
+                _isLoggedIn.value = false
+                _authState.value = AuthState.Idle
+                _errorMessage.value = null
             }
         }
     }
