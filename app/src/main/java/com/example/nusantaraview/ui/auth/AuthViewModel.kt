@@ -62,7 +62,8 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "❌ Login FAILED: ${e.message}")
                 _authState.value = AuthState.Error
-                _errorMessage.value = e.message ?: "Login failed"
+                // Parse error message menjadi user-friendly
+                _errorMessage.value = parseErrorMessage(e.message)
             }
         }
     }
@@ -85,7 +86,8 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "❌ Register FAILED: ${e.message}")
                 _authState.value = AuthState.Error
-                _errorMessage.value = e.message ?: "Registration failed"
+                // Parse error message menjadi user-friendly
+                _errorMessage.value = parseErrorMessage(e.message)
             }
         }
     }
@@ -109,6 +111,41 @@ class AuthViewModel : ViewModel() {
     fun clearError() {
         _errorMessage.value = null
         _authState.value = AuthState.Idle
+    }
+
+    /**
+     * Helper function untuk mengubah error message teknis menjadi user-friendly
+     */
+    private fun parseErrorMessage(message: String?): String {
+        return when {
+            message == null -> "Terjadi kesalahan"
+
+            // Error invalid login credentials
+            message.contains("Invalid login credentials", ignoreCase = true) ->
+                "Email atau password salah"
+
+            // Error email already registered
+            message.contains("already registered", ignoreCase = true) ||
+                    message.contains("User already registered", ignoreCase = true) ->
+                "Email sudah terdaftar"
+
+            // Error weak password
+            message.contains("Password should be", ignoreCase = true) ->
+                "Password minimal 6 karakter"
+
+            // Error invalid email format
+            message.contains("invalid email", ignoreCase = true) ||
+                    message.contains("Unable to validate email", ignoreCase = true) ->
+                "Format email tidak valid"
+
+            // Error network/connection
+            message.contains("network", ignoreCase = true) ||
+                    message.contains("connection", ignoreCase = true) ->
+                "Koneksi internet bermasalah"
+
+            // Default: tampilkan pesan singkat
+            else -> "Email atau password salah"
+        }
     }
 }
 
