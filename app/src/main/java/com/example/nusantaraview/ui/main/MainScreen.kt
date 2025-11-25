@@ -3,27 +3,34 @@ package com.example.nusantaraview.ui.main
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ExitToApp // Pastikan import ini ada
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.nusantaraview.ui.destination.AddDestinationDialog
+import com.example.nusantaraview.ui.destination.DestinationScreen
+import com.example.nusantaraview.ui.destination.DestinationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     onLogout: () -> Unit
 ) {
+    // Inisialisasi ViewModel untuk Destinasi
+    val destinationViewModel: DestinationViewModel = viewModel()
+
+    // State untuk mengontrol apakah dialog tambah muncul atau tidak
+    var showAddDialog by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("NusantaraView") },
                 actions = {
-                    // Tombol Logout diperbaiki di sini
                     IconButton(onClick = onLogout) {
                         Icon(
-                            // Ganti Icons.AutoMirrored.Filled.ExitToApp menjadi ini:
                             imageVector = Icons.Default.ExitToApp,
                             contentDescription = "Logout"
                         )
@@ -32,7 +39,8 @@ fun MainScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { /* TODO: Buka Dialog Add Destination */ }) {
+            // Tombol FAB untuk memunculkan dialog
+            FloatingActionButton(onClick = { showAddDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = "Tambah Destinasi")
             }
         }
@@ -40,21 +48,18 @@ fun MainScreen(
         Box(
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "Selamat Datang!",
-                    style = MaterialTheme.typography.headlineMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Daftar destinasi wisata akan muncul di sini.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Panggil Screen Destinasi (Grid) di sini
+            DestinationScreen(viewModel = destinationViewModel)
+        }
+
+        // Jika state true, munculkan dialog
+        if (showAddDialog) {
+            AddDestinationDialog(
+                onDismiss = { showAddDialog = false },
+                viewModel = destinationViewModel
+            )
         }
     }
 }
