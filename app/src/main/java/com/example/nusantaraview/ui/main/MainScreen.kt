@@ -13,6 +13,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.nusantaraview.ui.destination.AddDestinationDialog
 import com.example.nusantaraview.ui.destination.DestinationScreen
 import com.example.nusantaraview.ui.destination.DestinationViewModel
+import com.example.nusantaraview.ui.culinary.AddCulinaryDialog
+import com.example.nusantaraview.ui.culinary.CulinaryScreen
+import com.example.nusantaraview.ui.culinary.CulinaryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -20,9 +23,11 @@ fun MainScreen(
     onLogout: () -> Unit
 ) {
     val destinationViewModel: DestinationViewModel = viewModel()
+    val culinaryViewModel: CulinaryViewModel = viewModel()
+
     var showAddDialog by remember { mutableStateOf(false) }
 
-    // State untuk mengontrol tab mana yang aktif (0-4)
+    // 0 = Destinasi, 1 = Kuliner, 2 = Penginapan, 3 = Oleh-Oleh, 4 = Galeri
     var selectedTab by remember { mutableStateOf(0) }
 
     Scaffold(
@@ -119,9 +124,11 @@ fun MainScreen(
             }
         },
         floatingActionButton = {
-            // FAB hanya muncul di tab yang relevan
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Tambah")
+            // FAB hanya muncul di tab Destinasi dan Kuliner
+            if (selectedTab == 0 || selectedTab == 1) {
+                FloatingActionButton(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Tambah")
+                }
             }
         }
     ) { innerPadding ->
@@ -133,18 +140,24 @@ fun MainScreen(
             // Tampilkan screen sesuai tab yang dipilih
             when (selectedTab) {
                 0 -> DestinationScreen(viewModel = destinationViewModel)
-                1 -> PlaceholderScreen("Kuliner Khas", "Fitur ini akan dikerjakan oleh Anggota 2")
+                1 -> CulinaryScreen(viewModel = culinaryViewModel)
                 2 -> PlaceholderScreen("Penginapan", "Fitur ini akan dikerjakan oleh Anggota 3")
                 3 -> PlaceholderScreen("Oleh-Oleh", "Fitur ini akan dikerjakan oleh Anggota 4")
                 4 -> PlaceholderScreen("Galeri Pengunjung", "Fitur ini akan dikerjakan oleh Anggota 5")
             }
         }
 
-        // Dialog tambah destinasi (hanya untuk tab Destinasi)
+        // Dialog tambah data sesuai tab aktif
         if (showAddDialog && selectedTab == 0) {
             AddDestinationDialog(
                 onDismiss = { showAddDialog = false },
                 viewModel = destinationViewModel
+            )
+        }
+        if (showAddDialog && selectedTab == 1) {
+            AddCulinaryDialog(
+                onDismiss = { showAddDialog = false },
+                viewModel = culinaryViewModel
             )
         }
     }
