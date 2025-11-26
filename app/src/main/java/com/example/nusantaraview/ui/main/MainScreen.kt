@@ -1,197 +1,98 @@
 package com.example.nusantaraview.ui.main
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+// PERBAIKAN 1: Gunakan icon standar, bukan AutoMirrored
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.nusantaraview.ui.destination.AddDestinationDialog
-import com.example.nusantaraview.ui.destination.DestinationScreen
-import com.example.nusantaraview.ui.destination.DestinationViewModel
-import com.example.nusantaraview.ui.culinary.AddCulinaryDialog
+import androidx.lifecycle.viewmodel.compose.viewModel // PERBAIKAN 2: Tambah import ini
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import com.example.nusantaraview.ui.culinary.CulinaryScreen
-import com.example.nusantaraview.ui.culinary.CulinaryViewModel
+import com.example.nusantaraview.ui.destination.DestinationScreen
+import com.example.nusantaraview.ui.gallery.GalleryScreen
+import com.example.nusantaraview.ui.navigation.NavigationItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     onLogout: () -> Unit
 ) {
-    val destinationViewModel: DestinationViewModel = viewModel()
-    val culinaryViewModel: CulinaryViewModel = viewModel()
+    val bottomNavController = rememberNavController()
 
-    var showAddDialog by remember { mutableStateOf(false) }
-
-    // 0 = Destinasi, 1 = Kuliner, 2 = Penginapan, 3 = Oleh-Oleh, 4 = Galeri
-    var selectedTab by remember { mutableStateOf(0) }
+    val items = listOf(
+        NavigationItem.Home,
+        NavigationItem.Culinary,
+        NavigationItem.Gallery
+    )
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        when (selectedTab) {
-                            0 -> "Destinasi Wisata"
-                            1 -> "Kuliner Khas"
-                            2 -> "Penginapan"
-                            3 -> "Oleh-Oleh"
-                            4 -> "Galeri Pengunjung"
-                            else -> "NusantaraView"
-                        }
-                    )
-                },
+                title = { Text("NusantaraView") },
                 actions = {
                     IconButton(onClick = onLogout) {
+                        // PERBAIKAN 1: Ganti icon di sini
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
                             contentDescription = "Logout"
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                )
             )
         },
         bottomBar = {
             NavigationBar {
-                // 1. Destinasi Wisata
-                NavigationBarItem(
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = "Destinasi"
-                        )
-                    },
-                    label = { Text("Destinasi") },
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 }
-                )
+                val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
 
-                // 2. Kuliner Khas
-                NavigationBarItem(
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Restaurant,
-                            contentDescription = "Kuliner"
-                        )
-                    },
-                    label = { Text("Kuliner") },
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 }
-                )
-
-                // 3. Penginapan
-                NavigationBarItem(
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Hotel,
-                            contentDescription = "Penginapan"
-                        )
-                    },
-                    label = { Text("Penginapan") },
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 }
-                )
-
-                // 4. Oleh-Oleh
-                NavigationBarItem(
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingBag,
-                            contentDescription = "Oleh-Oleh"
-                        )
-                    },
-                    label = { Text("Oleh-Oleh") },
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 }
-                )
-
-                // 5. Galeri Pengunjung
-                NavigationBarItem(
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Photo,
-                            contentDescription = "Galeri"
-                        )
-                    },
-                    label = { Text("Galeri") },
-                    selected = selectedTab == 4,
-                    onClick = { selectedTab = 4 }
-                )
-            }
-        },
-        floatingActionButton = {
-            // FAB hanya muncul di tab Destinasi dan Kuliner
-            if (selectedTab == 0 || selectedTab == 1) {
-                FloatingActionButton(onClick = { showAddDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Tambah")
+                items.forEach { item ->
+                    NavigationBarItem(
+                        icon = { Icon(item.icon, contentDescription = item.title) },
+                        label = { Text(item.title) },
+                        selected = currentRoute == item.route,
+                        onClick = {
+                            bottomNavController.navigate(item.route) {
+                                popUpTo(bottomNavController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    )
                 }
             }
         }
     ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
+        NavHost(
+            navController = bottomNavController,
+            startDestination = NavigationItem.Home.route,
+            modifier = Modifier.padding(innerPadding)
         ) {
-            // Tampilkan screen sesuai tab yang dipilih
-            when (selectedTab) {
-                0 -> DestinationScreen(viewModel = destinationViewModel)
-                1 -> CulinaryScreen(viewModel = culinaryViewModel)
-                2 -> PlaceholderScreen("Penginapan", "Fitur ini akan dikerjakan oleh Anggota 3")
-                3 -> PlaceholderScreen("Oleh-Oleh", "Fitur ini akan dikerjakan oleh Anggota 4")
-                4 -> PlaceholderScreen("Galeri Pengunjung", "Fitur ini akan dikerjakan oleh Anggota 5")
+            composable(NavigationItem.Home.route) {
+                // PERBAIKAN 2: Masukkan viewModel() di dalam kurung
+                DestinationScreen(viewModel = viewModel())
             }
-        }
-
-        // Dialog tambah data sesuai tab aktif
-        if (showAddDialog && selectedTab == 0) {
-            AddDestinationDialog(
-                onDismiss = { showAddDialog = false },
-                viewModel = destinationViewModel
-            )
-        }
-        if (showAddDialog && selectedTab == 1) {
-            AddCulinaryDialog(
-                onDismiss = { showAddDialog = false },
-                viewModel = culinaryViewModel
-            )
-        }
-    }
-}
-
-// Placeholder Screen untuk fitur yang belum dikerjakan
-@Composable
-fun PlaceholderScreen(title: String, message: String) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(24.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Build,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
+            composable(NavigationItem.Culinary.route) {
+                // PERBAIKAN 2: Masukkan viewModel() di dalam kurung
+                CulinaryScreen(viewModel = viewModel())
+            }
+            composable(NavigationItem.Gallery.route) {
+                // GalleryScreen sudah kita buat dengan default value, jadi aman
+                GalleryScreen()
+            }
         }
     }
 }
