@@ -6,15 +6,14 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nusantaraview.data.model.Souvenir
-// 👇 Import Client yang kamu buat
 import com.example.nusantaraview.data.remote.SupabaseClient
-import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
+import io.github.jan.supabase.gotrue.auth
 
 class SouvenirViewModel : ViewModel() {
 
@@ -35,122 +34,147 @@ class SouvenirViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Menggunakan SupabaseClient.client
+                // Pastikan menggunakan client yang benar
                 val data = SupabaseClient.client
-                    .from("souvenirs")
+                    .from("souvenirs") // Nama tabel di database
                     .select()
                     .decodeList<Souvenir>()
-                    .sortedByDescending { it.createdAt }
+
                 _souvenirList.value = data
+                Log.d("SouvenirVM", "Fetched ${data.size} items")
             } catch (e: Exception) {
-                _errorMessage.value = "Gagal ambil data: ${e.message}"
-                Log.e("SouvenirVM", "Fetch Error: ${e.message}")
+                _errorMessage.value = "Gagal mengambil data: ${e.message}"
+                Log.e("SouvenirVM", "Fetch error: ${e.message}", e)
             } finally {
                 _isLoading.value = false
             }
         }
     }
 
-    fun addSouvenir(nama: String, toko: String, hargaStr: String, uri: Uri?, context: Context) {
+    fun addSouvenir(
+        itemName: String,
+        storeName: String,
+        price: String,
+        description: String,
+        imageUri: Uri?,
+        context: Context
+    ) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // 1. Cek User Login (PENTING UNTUK RLS)
+                // PERBAIKAN 1: Ambil User ID dari session login saat ini
                 val currentUser = SupabaseClient.client.auth.currentUserOrNull()
-                if (currentUser == null) {
-                    throw Exception("User belum login. Tidak bisa menambah data.")
+                val currentUserId = currentUser?.id
+
+                // Cek jika user belum login, lempar error
+                if (currentUserId == null) {
+                    _errorMessage.value = "User belum login!"
+                    _isLoading.value = false
+                    return@launch
                 }
 
-                // 2. Upload Gambar
-                val imgUrl = uploadImage(uri, context)
-                val hargaInt = hargaStr.toIntOrNull() ?: 0
+                var finalImageUrl: String? = null
 
-                // 3. Buat Object (Masukkan User ID)
+                // Upload gambar (Pastikan bucket policy sudah diatur juga)
+                if (imageUri != null) {
+                    val bytes = context.contentResolver.openInputStream(imageUri)?.use { it.readBytes() }
+                    if (bytes != null) {
+                        val fileName = "souvenirs/${UUID.randomUUID()}.jpg"
+                        val bucket = SupabaseClient.client.storage.from("souvenir-images")
+                        bucket.upload(fileName, bytes)
+                        finalImageUrl = bucket.publicUrl(fileName)
+                    }
+                }
+
+                val priceInt = price.toIntOrNull() ?: 0
+
                 val newItem = Souvenir(
-                    itemName = nama,
-                    storeName = toko,
-                    price = hargaInt,
-                    imageUrl = imgUrl,
-                    userId = currentUser.id // 👈 Kunci agar Policy SQL lolos!
+                    itemName = itemName,
+                    storeName = storeName,
+                    price = priceInt,
+                    description = description,
+                    imageUrl = finalImageUrl,
+                    userId = currentUserId // PERBAIKAN 2: Masukkan User ID ke sini
                 )
 
-                // 4. Kirim ke Database
-                SupabaseClient.client.from("souvenirs").insert(newItem)
+                SupabaseClient.client
+                    .from("souvenirs")
+                    .insert(newItem)
 
+                Log.d("SouvenirVM", "Item ditambahkan: $newItem")
                 fetchSouvenirs()
+
             } catch (e: Exception) {
-                _errorMessage.value = "Gagal tambah: ${e.message}"
-                Log.e("SouvenirVM", "Add Error: ${e.message}")
+                _errorMessage.value = "Gagal: ${e.message}"
+                Log.e("SouvenirVM", "Error: ${e.message}", e)
             } finally {
                 _isLoading.value = false
             }
         }
     }
-
-    fun editSouvenir(originalItem: Souvenir, nama: String, toko: String, hargaStr: String, newUri: Uri?, context: Context) {
+    fun updateSouvenir(
+        originalItem: Souvenir, // Data lama
+        newName: String,
+        newStore: String,
+        newPrice: String,
+        newDesc: String,
+        newImageUri: Uri?, // Foto baru (jika ada)
+        context: Context
+    ) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Cek Login
+                // 1. Cek User Login
                 val currentUser = SupabaseClient.client.auth.currentUserOrNull()
-                if (currentUser == null) throw Exception("Sesi habis. Silakan login ulang.")
+                if (currentUser?.id != originalItem.userId) {
+                    _errorMessage.value = "Anda tidak memiliki izin mengubah data ini"
+                    _isLoading.value = false
+                    return@launch
+                }
 
-                val finalUrl = if (newUri != null) uploadImage(newUri, context) else originalItem.imageUrl
-                val hargaInt = hargaStr.toIntOrNull() ?: 0
+                var finalImageUrl = originalItem.imageUrl
 
-                SupabaseClient.client.from("souvenirs").update(
-                    {
-                        set("item_name", nama)
-                        set("store_name", toko)
-                        set("price", hargaInt)
-                        set("image_url", finalUrl)
-                        // User ID tidak perlu diupdate, tetap pakai yang lama
-                    }
-                ) {
-                    filter {
-                        eq("id", originalItem.id!!)
+                // 2. Jika ada foto baru, upload dulu
+                if (newImageUri != null) {
+                    val bytes = context.contentResolver.openInputStream(newImageUri)?.use { it.readBytes() }
+                    if (bytes != null) {
+                        // Tips: Sebaiknya hapus foto lama dari storage biar hemat, tapi skip dulu gpp
+                        val fileName = "souvenirs/${UUID.randomUUID()}.jpg"
+                        val bucket = SupabaseClient.client.storage.from("souvenir-images")
+                        bucket.upload(fileName, bytes)
+                        finalImageUrl = bucket.publicUrl(fileName)
                     }
                 }
-                fetchSouvenirs()
+
+                val priceInt = newPrice.toIntOrNull() ?: 0
+
+                // 3. Buat object baru dengan data update
+                val updatedItem = originalItem.copy(
+                    itemName = newName,
+                    storeName = newStore,
+                    price = priceInt,
+                    description = newDesc,
+                    imageUrl = finalImageUrl
+                )
+
+                // 4. Kirim update ke Supabase berdasarkan ID
+                SupabaseClient.client
+                    .from("souvenirs")
+                    .update(updatedItem) {
+                        filter {
+                            eq("id", originalItem.id!!) // Cari berdasarkan ID item
+                        }
+                    }
+
+                Log.d("SouvenirVM", "Update sukses")
+                fetchSouvenirs() // Refresh list
+
             } catch (e: Exception) {
-                _errorMessage.value = "Gagal edit: ${e.message}"
-                Log.e("SouvenirVM", "Edit Error: ${e.message}")
+                _errorMessage.value = "Gagal update: ${e.message}"
+                Log.e("SouvenirVM", "Update error: ${e.message}", e)
             } finally {
                 _isLoading.value = false
             }
         }
-    }
-
-    fun deleteSouvenir(item: Souvenir) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                // Cek Login
-                val currentUser = SupabaseClient.client.auth.currentUserOrNull()
-                if (currentUser == null) throw Exception("Sesi habis.")
-
-                SupabaseClient.client.from("souvenirs").delete {
-                    filter {
-                        eq("id", item.id!!)
-                    }
-                }
-                fetchSouvenirs()
-            } catch (e: Exception) {
-                _errorMessage.value = "Gagal hapus: ${e.message}"
-                Log.e("SouvenirVM", "Delete Error: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    private suspend fun uploadImage(uri: Uri?, context: Context): String? {
-        if (uri == null) return null
-        val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
-        val fileName = "souvenirs/${UUID.randomUUID()}.jpg"
-        // Menggunakan bucket 'souvenir-images' dari SupabaseClient
-        val bucket = SupabaseClient.client.storage.from("souvenir-images")
-        bucket.upload(fileName, bytes)
-        return bucket.publicUrl(fileName)
     }
 }

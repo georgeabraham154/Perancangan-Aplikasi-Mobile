@@ -15,16 +15,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.example.nusantaraview.data.model.Souvenir
 
 @Composable
-fun AddSouvenirDialog(
+fun EditSouvenirDialog(
+    souvenir: Souvenir, // Data yang mau diedit
     onDismiss: () -> Unit,
     viewModel: SouvenirViewModel
 ) {
-    var itemName by remember { mutableStateOf("") }
-    var storeName by remember { mutableStateOf("") }
-    var price by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
+    // Isi state awal dengan data dari parameter 'souvenir'
+    var itemName by remember { mutableStateOf(souvenir.itemName) }
+    var storeName by remember { mutableStateOf(souvenir.storeName) }
+    var price by remember { mutableStateOf(souvenir.price.toString()) }
+    var description by remember { mutableStateOf(souvenir.description ?: "") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
     val isLoading by viewModel.isLoading.collectAsState()
@@ -37,7 +40,7 @@ fun AddSouvenirDialog(
 
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
-        title = { Text("Tambah Oleh-Oleh") },
+        title = { Text("Edit Oleh-Oleh") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -49,14 +52,12 @@ fun AddSouvenirDialog(
                     label = { Text("Nama Barang") },
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 OutlinedTextField(
                     value = storeName,
                     onValueChange = { storeName = it },
                     label = { Text("Nama Toko") },
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 OutlinedTextField(
                     value = price,
                     onValueChange = { price = it.filter(Char::isDigit) },
@@ -64,51 +65,38 @@ fun AddSouvenirDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
-
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Deskripsi (Opsional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2
+                    label = { Text("Deskripsi") },
+                    modifier = Modifier.fillMaxWidth()
                 )
-
-                Spacer(modifier = Modifier.height(4.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            imagePickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        }
-                        .padding(vertical = 8.dp)
+                    modifier = Modifier.clickable {
+                        imagePickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }.padding(top = 8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = "Pilih Foto",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = if (imageUri != null) "Foto berhasil dipilih" else "Upload foto barang",
-                        color = if (imageUri != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                    )
+                    Text(if (imageUri != null) "Ganti Foto (Terpilih)" else "Ganti Foto (Opsional)")
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (!isLoading && itemName.isNotEmpty() && price.isNotEmpty()) {
-                        viewModel.addSouvenir(
-                            itemName = itemName,
-                            storeName = storeName,
-                            price = price,
-                            description = description,
-                            imageUri = imageUri,
+                    if (!isLoading) {
+                        viewModel.updateSouvenir(
+                            originalItem = souvenir,
+                            newName = itemName,
+                            newStore = storeName,
+                            newPrice = price,
+                            newDesc = description,
+                            newImageUri = imageUri,
                             context = context
                         )
                         onDismiss()
@@ -116,24 +104,11 @@ fun AddSouvenirDialog(
                 },
                 enabled = !isLoading
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Text("Simpan")
-                }
+                Text(if (isLoading) "Loading..." else "Update")
             }
         },
         dismissButton = {
-            TextButton(
-                onClick = { if (!isLoading) onDismiss() },
-                enabled = !isLoading
-            ) {
-                Text("Batal")
-            }
+            TextButton(onClick = onDismiss) { Text("Batal") }
         }
     )
 }

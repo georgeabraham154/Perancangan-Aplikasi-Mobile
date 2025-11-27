@@ -14,16 +14,13 @@ data class Souvenir(
     @SerialName("store_name")
     val storeName: String,
 
-    @SerialName("price")
     val price: Int,
+
+    val description: String? = null,
 
     @SerialName("image_url")
     val imageUrl: String? = null,
 
-    @SerialName("description")
-    val description: String? = null,
-
-    // 👇 TAMBAHAN PENTING: Untuk menyimpan ID User pembuat
     @SerialName("user_id")
     val userId: String? = null,
 
