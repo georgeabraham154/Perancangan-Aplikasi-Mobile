@@ -19,6 +19,7 @@ import com.example.nusantaraview.ui.destination.DestinationScreen
 import com.example.nusantaraview.ui.gallery.GalleryScreen
 import com.example.nusantaraview.ui.souvenir.SouvenirScreen
 import com.example.nusantaraview.ui.navigation.NavigationItem
+import com.example.nusantaraview.ui.accommodation.AccommodationScreen
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +32,7 @@ fun MainScreen(
     val items = listOf(
         NavigationItem.Home,
         NavigationItem.Culinary,
+        NavigationItem.Accommodation,
         NavigationItem.Souvenir,
         NavigationItem.Gallery
     )
@@ -91,6 +93,9 @@ fun MainScreen(
             composable(NavigationItem.Culinary.route) {
                 // PERBAIKAN 2: Masukkan viewModel() di dalam kurung
                 CulinaryScreen(viewModel = viewModel())
+            }
+            composable(NavigationItem.Accommodation.route) {
+                AccommodationScreen(viewModel = viewModel())
             }
             composable(NavigationItem.Souvenir.route) {
                 SouvenirScreen(viewModel = viewModel())
