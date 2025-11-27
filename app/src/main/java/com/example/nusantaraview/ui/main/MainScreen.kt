@@ -17,7 +17,9 @@ import androidx.navigation.compose.rememberNavController
 import com.example.nusantaraview.ui.culinary.CulinaryScreen
 import com.example.nusantaraview.ui.destination.DestinationScreen
 import com.example.nusantaraview.ui.gallery.GalleryScreen
+import com.example.nusantaraview.ui.souvenir.SouvenirScreen
 import com.example.nusantaraview.ui.navigation.NavigationItem
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +31,7 @@ fun MainScreen(
     val items = listOf(
         NavigationItem.Home,
         NavigationItem.Culinary,
+        NavigationItem.Souvenir,
         NavigationItem.Gallery
     )
 
@@ -88,6 +91,9 @@ fun MainScreen(
             composable(NavigationItem.Culinary.route) {
                 // PERBAIKAN 2: Masukkan viewModel() di dalam kurung
                 CulinaryScreen(viewModel = viewModel())
+            }
+            composable(NavigationItem.Souvenir.route) {
+                SouvenirScreen(viewModel = viewModel())
             }
             composable(NavigationItem.Gallery.route) {
                 // GalleryScreen sudah kita buat dengan default value, jadi aman
