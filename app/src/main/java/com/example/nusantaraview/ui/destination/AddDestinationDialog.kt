@@ -1,5 +1,6 @@
 package com.example.nusantaraview.ui.destination
 
+import android.content.Intent // Import untuk buka Maps
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -13,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Map // Import Icon Peta
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -56,7 +58,7 @@ fun AddDestinationDialog(
             Column(
                 modifier = Modifier
                     .padding(16.dp)
-                    .verticalScroll(rememberScrollState()), // Agar bisa discroll jika layar kecil
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(text = "Tambah Wisata Baru", style = MaterialTheme.typography.headlineSmall)
@@ -94,7 +96,7 @@ fun AddDestinationDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Input Fields
+                // Input Nama Tempat
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -104,15 +106,50 @@ fun AddDestinationDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Input Lokasi (DENGAN INTEGRASI MAPS)
                 OutlinedTextField(
                     value = location,
                     onValueChange = { location = it },
                     label = { Text("Lokasi") },
-                    modifier = Modifier.fillMaxWidth()
+                    placeholder = { Text("Contoh: Kota Batu") },
+                    modifier = Modifier.fillMaxWidth(),
+                    trailingIcon = {
+                        // Tombol ini akan membuka Google Maps
+                        IconButton(onClick = {
+                            // Jika kolom kosong, cari "Wisata Indonesia", jika ada isi, cari sesuai isi
+                            val query = if (location.isNotEmpty()) location else "Wisata Indonesia"
+
+                            // Buat Intent ke Google Maps
+                            val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(query)}")
+                            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                            mapIntent.setPackage("com.google.android.apps.maps")
+
+                            try {
+                                context.startActivity(mapIntent)
+                            } catch (e: Exception) {
+                                // Jika tidak punya aplikasi Maps, buka lewat browser
+                                val browserIntent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(query)}")
+                                )
+                                context.startActivity(browserIntent)
+                            }
+                        }) {
+                            Icon(Icons.Default.Map, contentDescription = "Cari di Maps")
+                        }
+                    }
+                )
+                // Teks bantuan kecil
+                Text(
+                    text = "Tips: Klik ikon peta untuk cek lokasi di Google Maps",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.align(Alignment.Start).padding(start = 4.dp, top = 2.dp)
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Input Harga
                 OutlinedTextField(
                     value = price,
                     onValueChange = { price = it },
@@ -123,6 +160,7 @@ fun AddDestinationDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // Input Deskripsi
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
