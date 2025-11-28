@@ -104,7 +104,7 @@ fun AddDestinationDialog(
                     value = name,
                     onValueChange = {
                         name = it
-                        if (showError) showError = false // Reset error saat user mengetik
+                        if (showError) showError = false
                     },
                     label = { Text("Nama Tempat") },
                     modifier = Modifier.fillMaxWidth(),
@@ -158,7 +158,6 @@ fun AddDestinationDialog(
                 OutlinedTextField(
                     value = price,
                     onValueChange = {
-                        // Filter hanya angka
                         if (it.isEmpty() || it.all { char -> char.isDigit() }) {
                             price = it
                             if (showError) showError = false

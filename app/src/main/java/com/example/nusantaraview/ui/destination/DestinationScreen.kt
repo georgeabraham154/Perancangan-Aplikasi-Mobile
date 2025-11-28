@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.nusantaraview.data.remote.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.InternalSerializationApi
 import java.text.NumberFormat
@@ -48,20 +47,12 @@ fun DestinationScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var destinationToEdit by remember { mutableStateOf<com.example.nusantaraview.data.model.Destination?>(null) }
 
-    // AUTO REFRESH setiap 10 detik
+    // Fetch data HANYA sekali saat pertama kali dibuka (SEPERTI ACCOMMODATION)
     LaunchedEffect(Unit) {
-        // Fetch pertama kali
         viewModel.fetchDestinations()
 
-        // Ambil user ID
         scope.launch {
             currentUserId = SupabaseClient.client.auth.currentUserOrNull()?.id
-        }
-
-        // Loop auto-refresh setiap 10 detik
-        while (true) {
-            delay(10000) // 10 detik
-            viewModel.fetchDestinations()
         }
     }
 
