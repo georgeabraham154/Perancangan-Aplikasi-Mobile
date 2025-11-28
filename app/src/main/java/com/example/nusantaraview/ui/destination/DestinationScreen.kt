@@ -3,7 +3,6 @@ package com.example.nusantaraview.ui.destination
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,23 +13,22 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Map // Icon Peta
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.nusantaraview.data.remote.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.InternalSerializationApi
 import java.text.NumberFormat
@@ -47,19 +45,26 @@ fun DestinationScreen(
     val scope = rememberCoroutineScope()
     var currentUserId by remember { mutableStateOf<String?>(null) }
 
-    // State untuk kontrol dialog
     var showAddDialog by remember { mutableStateOf(false) }
     var destinationToEdit by remember { mutableStateOf<com.example.nusantaraview.data.model.Destination?>(null) }
 
-    // Ambil data saat pertama kali dibuka
+    // AUTO REFRESH setiap 10 detik
     LaunchedEffect(Unit) {
+        // Fetch pertama kali
         viewModel.fetchDestinations()
+
+        // Ambil user ID
         scope.launch {
             currentUserId = SupabaseClient.client.auth.currentUserOrNull()?.id
         }
+
+        // Loop auto-refresh setiap 10 detik
+        while (true) {
+            delay(10000) // 10 detik
+            viewModel.fetchDestinations()
+        }
     }
 
-    // PENTING: Scaffold ini yang memunculkan tombol (+)
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -82,7 +87,6 @@ fun DestinationScreen(
                     Text("Jadilah yang pertama posting!", style = MaterialTheme.typography.bodySmall)
                 }
             } else {
-                // TAMPILAN BARU: Menggunakan LazyColumn (List ke bawah), bukan Grid
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -99,7 +103,6 @@ fun DestinationScreen(
         }
     }
 
-    // Dialog Tambah
     if (showAddDialog) {
         AddDestinationDialog(
             onDismiss = { showAddDialog = false },
@@ -107,7 +110,6 @@ fun DestinationScreen(
         )
     }
 
-    // Dialog Edit
     destinationToEdit?.let { destination ->
         EditDestinationDialog(
             destination = destination,
@@ -117,7 +119,6 @@ fun DestinationScreen(
     }
 }
 
-// Desain Card Baru: Gaya Travel Blog dengan Tombol Maps
 @Composable
 fun DestinationItemTravelStyle(
     destination: com.example.nusantaraview.data.model.Destination,
@@ -130,18 +131,10 @@ fun DestinationItemTravelStyle(
     Card(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            // Biarkan tinggi otomatis menyesuaikan konten, tapi gambar punya tinggi tetap
-            .wrapContentHeight()
+        modifier = Modifier.fillMaxWidth().wrapContentHeight()
     ) {
         Column {
-            // 1. Gambar Besar (Header)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp) // Gambar lebih besar
-            ) {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp)) {
                 AsyncImage(
                     model = destination.imageUrl ?: "https://placehold.co/600x400?text=No+Image",
                     contentDescription = destination.name,
@@ -150,7 +143,6 @@ fun DestinationItemTravelStyle(
                     error = rememberVectorPainter(Icons.Default.BrokenImage)
                 )
 
-                // Tombol Edit (Melayang di kanan atas gambar)
                 if (isOwner) {
                     IconButton(
                         onClick = onEditClick,
@@ -169,7 +161,6 @@ fun DestinationItemTravelStyle(
                     }
                 }
 
-                // Harga Tiket (Melayang di kiri bawah gambar)
                 val formattedPrice = NumberFormat.getCurrencyInstance(Locale("in", "ID"))
                     .format(destination.ticketPrice)
 
@@ -190,14 +181,12 @@ fun DestinationItemTravelStyle(
                 }
             }
 
-            // 2. Informasi Detail
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Nama Tempat
                     Text(
                         text = destination.name,
                         style = MaterialTheme.typography.headlineSmall,
@@ -205,19 +194,15 @@ fun DestinationItemTravelStyle(
                         modifier = Modifier.weight(1f)
                     )
 
-                    // TOMBOL MAPS (Fitur Baru)
                     IconButton(
                         onClick = {
-                            // Intent untuk membuka Google Maps
                             val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(destination.location)}")
                             val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                             mapIntent.setPackage("com.google.android.apps.maps")
 
-                            // Cek apakah ada aplikasi maps, kalau tidak ada buka browser
                             try {
                                 context.startActivity(mapIntent)
                             } catch (e: Exception) {
-                                // Fallback jika tidak ada app maps
                                 val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(destination.location)}"))
                                 context.startActivity(browserIntent)
                             }
@@ -236,7 +221,6 @@ fun DestinationItemTravelStyle(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Lokasi dengan Icon
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
@@ -252,13 +236,12 @@ fun DestinationItemTravelStyle(
                     )
                 }
 
-                // Deskripsi (jika ada)
                 if (!destination.description.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = destination.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 3, // Batasi 3 baris biar rapi
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
                 }

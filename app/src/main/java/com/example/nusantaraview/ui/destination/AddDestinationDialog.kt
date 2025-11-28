@@ -1,6 +1,6 @@
 package com.example.nusantaraview.ui.destination
 
-import android.content.Intent // Import untuk buka Maps
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -14,7 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.Map // Import Icon Peta
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,10 +39,13 @@ fun AddDestinationDialog(
     var description by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
+    // State untuk error validation
+    var showError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+
     val context = LocalContext.current
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // Launcher untuk membuka Galeri HP
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri -> imageUri = uri }
@@ -99,27 +102,31 @@ fun AddDestinationDialog(
                 // Input Nama Tempat
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = {
+                        name = it
+                        if (showError) showError = false // Reset error saat user mengetik
+                    },
                     label = { Text("Nama Tempat") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = showError && name.isBlank()
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Input Lokasi (DENGAN INTEGRASI MAPS)
+                // Input Lokasi
                 OutlinedTextField(
                     value = location,
-                    onValueChange = { location = it },
+                    onValueChange = {
+                        location = it
+                        if (showError) showError = false
+                    },
                     label = { Text("Lokasi") },
                     placeholder = { Text("Contoh: Kota Batu") },
                     modifier = Modifier.fillMaxWidth(),
+                    isError = showError && location.isBlank(),
                     trailingIcon = {
-                        // Tombol ini akan membuka Google Maps
                         IconButton(onClick = {
-                            // Jika kolom kosong, cari "Wisata Indonesia", jika ada isi, cari sesuai isi
                             val query = if (location.isNotEmpty()) location else "Wisata Indonesia"
-
-                            // Buat Intent ke Google Maps
                             val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(query)}")
                             val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                             mapIntent.setPackage("com.google.android.apps.maps")
@@ -127,7 +134,6 @@ fun AddDestinationDialog(
                             try {
                                 context.startActivity(mapIntent)
                             } catch (e: Exception) {
-                                // Jika tidak punya aplikasi Maps, buka lewat browser
                                 val browserIntent = Intent(
                                     Intent.ACTION_VIEW,
                                     Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(query)}")
@@ -139,7 +145,6 @@ fun AddDestinationDialog(
                         }
                     }
                 )
-                // Teks bantuan kecil
                 Text(
                     text = "Tips: Klik ikon peta untuk cek lokasi di Google Maps",
                     style = MaterialTheme.typography.bodySmall,
@@ -152,10 +157,17 @@ fun AddDestinationDialog(
                 // Input Harga
                 OutlinedTextField(
                     value = price,
-                    onValueChange = { price = it },
+                    onValueChange = {
+                        // Filter hanya angka
+                        if (it.isEmpty() || it.all { char -> char.isDigit() }) {
+                            price = it
+                            if (showError) showError = false
+                        }
+                    },
                     label = { Text("Harga Tiket (Rp)") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = showError && price.isBlank()
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -164,10 +176,20 @@ fun AddDestinationDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Deskripsi") },
+                    label = { Text("Deskripsi (Opsional)") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3
                 )
+
+                // Error Message
+                if (showError) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -182,22 +204,45 @@ fun AddDestinationDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            if (name.isNotEmpty() && location.isNotEmpty() && price.isNotEmpty()) {
-                                viewModel.addDestination(
-                                    name = name,
-                                    location = location,
-                                    price = price,
-                                    description = description,
-                                    imageUri = imageUri,
-                                    context = context
-                                )
-                                onDismiss()
+                            // VALIDASI FORM
+                            when {
+                                name.isBlank() -> {
+                                    showError = true
+                                    errorMessage = "Nama tempat wajib diisi!"
+                                }
+                                location.isBlank() -> {
+                                    showError = true
+                                    errorMessage = "Lokasi wajib diisi!"
+                                }
+                                price.isBlank() -> {
+                                    showError = true
+                                    errorMessage = "Harga tiket wajib diisi!"
+                                }
+                                price.toIntOrNull() == null -> {
+                                    showError = true
+                                    errorMessage = "Harga harus berupa angka!"
+                                }
+                                else -> {
+                                    // Validasi OK, submit data
+                                    viewModel.addDestination(
+                                        name = name,
+                                        location = location,
+                                        price = price,
+                                        description = description,
+                                        imageUri = imageUri,
+                                        context = context
+                                    )
+                                    onDismiss()
+                                }
                             }
                         },
                         enabled = !isLoading
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
                         } else {
                             Text("Simpan")
                         }
