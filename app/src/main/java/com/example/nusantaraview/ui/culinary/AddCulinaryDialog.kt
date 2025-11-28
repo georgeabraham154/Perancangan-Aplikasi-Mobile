@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
@@ -28,7 +29,7 @@ fun AddCulinaryDialog(
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
     val isLoading by viewModel.isLoading.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -38,10 +39,11 @@ fun AddCulinaryDialog(
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
         title = { Text("Tambah Kuliner") },
+
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
                     value = namaMakanan,
@@ -65,9 +67,7 @@ fun AddCulinaryDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = isRecommended,
                         onCheckedChange = { isRecommended = it }
@@ -90,10 +90,11 @@ fun AddCulinaryDialog(
                         contentDescription = "Pilih Foto"
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(text = if (imageUri != null) "Foto dipilih" else "Pilih foto makanan")
+                    Text(if (imageUri != null) "Foto dipilih" else "Pilih foto makanan")
                 }
             }
         },
+
         confirmButton = {
             Button(
                 onClick = {
@@ -114,14 +115,14 @@ fun AddCulinaryDialog(
                 if (isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        strokeWidth = 2.dp
                     )
                 } else {
                     Text("Simpan")
                 }
             }
         },
+
         dismissButton = {
             TextButton(
                 onClick = { if (!isLoading) onDismiss() },
