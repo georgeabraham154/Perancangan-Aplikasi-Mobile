@@ -6,7 +6,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nusantaraview.data.model.Culinary
-import com.example.nusantaraview.data.remote.SupabaseCulinaryClient
+import com.example.nusantaraview.data.remote.SupabaseClient
+import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,20 +30,37 @@ class CulinaryViewModel : ViewModel() {
         fetchCulinary()
     }
 
+    private suspend fun uploadImage(uri: Uri, context: Context): String? {
+        return try {
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return null
+
+            val fileName = "culinary/${UUID.randomUUID()}.jpg"
+            val bucket = SupabaseClient.client.storage.from("culinary-images")
+
+            bucket.upload(fileName, bytes, upsert = false)
+
+            bucket.publicUrl(fileName)
+        } catch (e: Exception) {
+            Log.e("CulinaryVM", "Upload error: ${e.message}")
+            null
+        }
+    }
+
     fun fetchCulinary() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val data = SupabaseCulinaryClient.client
+                val data = SupabaseClient.client
                     .from("culinary")
                     .select()
                     .decodeList<Culinary>()
+                    .sortedByDescending { it.createdAt }
 
                 _culinaryList.value = data
-                Log.d("CulinaryVM", "Fetched ${data.size} kuliner")
+
             } catch (e: Exception) {
-                _errorMessage.value = "Gagal mengambil data kuliner: ${e.message}"
-                Log.e("CulinaryVM", "Fetch error: ${e.message}", e)
+                _errorMessage.value = "Fetch failed: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
@@ -50,50 +68,41 @@ class CulinaryViewModel : ViewModel() {
     }
 
     fun addCulinary(
-        namaMakanan: String,
-        namaWarung: String,
-        harga: String,
-        isRecommended: Boolean,
+        foodName: String,
+        restaurantName: String,
+        price: String,
+        description: String,
         imageUri: Uri?,
         context: Context
     ) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                var finalImageUrl: String? = null
+                val currentUser = SupabaseClient.client.auth.currentUserOrNull()
+                    ?: throw Exception("Harus login dulu!")
 
-                // Upload gambar ke bucket culinary-images
+                var finalImage: String? = null
                 if (imageUri != null) {
-                    val bytes = context.contentResolver.openInputStream(imageUri)?.use { it.readBytes() }
-                    if (bytes != null) {
-                        val fileName = "culinary/${UUID.randomUUID()}.jpg"
-                        val bucket = SupabaseCulinaryClient.client.storage.from("culinary-images")
-                        bucket.upload(fileName, bytes)
-                        finalImageUrl = bucket.publicUrl(fileName)
-                        Log.d("CulinaryVM", "Gambar diupload: $finalImageUrl")
-                    }
+                    finalImage = uploadImage(imageUri, context)
                 }
 
-                val hargaInt = harga.toIntOrNull() ?: 0
+                val priceInt = price.toIntOrNull() ?: 0
 
                 val newItem = Culinary(
-                    namaMakanan = namaMakanan,
-                    namaWarung = namaWarung,
-                    harga = hargaInt,
-                    fotoUrl = finalImageUrl,
-                    isRecommended = isRecommended
+                    foodName = foodName,
+                    restaurantName = restaurantName,
+                    price = priceInt,
+                    description = description.ifBlank { null },
+                    imageUrl = finalImage,
+                    userId = currentUser.id
                 )
 
-                SupabaseCulinaryClient.client
-                    .from("culinary")
-                    .insert(newItem)
-
-                Log.d("CulinaryVM", "Kuliner ditambahkan: $newItem")
+                SupabaseClient.client.from("culinary").insert(newItem)
 
                 fetchCulinary()
+
             } catch (e: Exception) {
-                _errorMessage.value = "Gagal menambahkan kuliner: ${e.message}"
-                Log.e("CulinaryVM", "Add error: ${e.message}", e)
+                _errorMessage.value = "Insert failed: ${e.message}"
             } finally {
                 _isLoading.value = false
             }

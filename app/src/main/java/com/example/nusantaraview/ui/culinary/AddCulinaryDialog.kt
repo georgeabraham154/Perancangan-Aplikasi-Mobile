@@ -22,112 +22,65 @@ fun AddCulinaryDialog(
     onDismiss: () -> Unit,
     viewModel: CulinaryViewModel
 ) {
-    var namaMakanan by remember { mutableStateOf("") }
-    var namaWarung by remember { mutableStateOf("") }
-    var harga by remember { mutableStateOf("") }
-    var isRecommended by remember { mutableStateOf(false) }
+    var foodName by remember { mutableStateOf("") }
+    var restaurantName by remember { mutableStateOf("") }
+    var price by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
 
     val isLoading by viewModel.isLoading.collectAsState()
     val context = LocalContext.current
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
+    val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri -> imageUri = uri }
+        onResult = { imageUri = it }
     )
 
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
         title = { Text("Tambah Kuliner") },
-
         text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedTextField(
-                    value = namaMakanan,
-                    onValueChange = { namaMakanan = it },
-                    label = { Text("Nama Makanan") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
+                OutlinedTextField(foodName, { foodName = it }, label = { Text("Nama Makanan") })
+                OutlinedTextField(restaurantName, { restaurantName = it }, label = { Text("Nama Warung") })
                 OutlinedTextField(
-                    value = namaWarung,
-                    onValueChange = { namaWarung = it },
-                    label = { Text("Nama Warung") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = harga,
-                    onValueChange = { harga = it.filter(Char::isDigit) },
+                    value = price,
+                    onValueChange = { price = it.filter(Char::isDigit) },
                     label = { Text("Harga") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = isRecommended,
-                        onCheckedChange = { isRecommended = it }
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Tandai sebagai makanan wajib coba")
-                }
+                OutlinedTextField(description, { description = it }, label = { Text("Deskripsi") })
 
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clickable {
-                            imagePickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        }
+                    modifier = Modifier.clickable {
+                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = "Pilih Foto"
-                    )
+                    Icon(Icons.Default.AddPhotoAlternate, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text(if (imageUri != null) "Foto dipilih" else "Pilih foto makanan")
+                    Text(if (imageUri != null) "Foto dipilih" else "Pilih Foto")
                 }
             }
         },
-
         confirmButton = {
-            Button(
-                onClick = {
-                    if (!isLoading) {
-                        viewModel.addCulinary(
-                            namaMakanan = namaMakanan,
-                            namaWarung = namaWarung,
-                            harga = harga,
-                            isRecommended = isRecommended,
-                            imageUri = imageUri,
-                            context = context
-                        )
-                        onDismiss()
-                    }
-                },
-                enabled = !isLoading
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Simpan")
-                }
+            Button(onClick = {
+                viewModel.addCulinary(
+                    foodName,
+                    restaurantName,
+                    price,
+                    description,
+                    imageUri,
+                    context
+                )
+                onDismiss()
+            }, enabled = !isLoading) {
+                Text("Simpan")
             }
         },
-
         dismissButton = {
-            TextButton(
-                onClick = { if (!isLoading) onDismiss() },
-                enabled = !isLoading
-            ) {
+            TextButton(onClick = onDismiss, enabled = !isLoading) {
                 Text("Batal")
             }
         }

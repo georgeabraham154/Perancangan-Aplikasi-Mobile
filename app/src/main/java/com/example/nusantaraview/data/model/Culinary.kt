@@ -4,24 +4,28 @@ import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-@InternalSerializationApi
-@Serializable
+@InternalSerializationApi @Serializable
 data class Culinary(
+    @SerialName("id")
     val id: String? = null,
 
-    @SerialName("nama_makanan")
-    val namaMakanan: String,
+    @SerialName("food_name")
+    val foodName: String,
 
-    @SerialName("nama_warung")
-    val namaWarung: String,
+    @SerialName("restaurant_name")
+    val restaurantName: String,
 
-    val harga: Int,
+    @SerialName("price")
+    val price: Int,
 
-    @SerialName("foto_url")
-    val fotoUrl: String? = null,
+    @SerialName("description")
+    val description: String? = null,
 
-    @SerialName("is_recommended")
-    val isRecommended: Boolean = false,
+    @SerialName("image_url")
+    val imageUrl: String? = null,
+
+    @SerialName("user_id")
+    val userId: String? = null,
 
     @SerialName("created_at")
     val createdAt: String? = null
