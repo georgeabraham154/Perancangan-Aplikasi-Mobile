@@ -25,5 +25,9 @@ data class Souvenir(
     val userId: String? = null,
 
     @SerialName("created_at")
-    val createdAt: String? = null
+    val createdAt: String? = null,
+
+    @SerialName("category")
+    val category: String = "Barang"
+
 )
