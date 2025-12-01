@@ -9,6 +9,7 @@ import com.example.nusantaraview.data.model.Accommodation
 import com.example.nusantaraview.data.remote.SupabaseClient
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,61 +29,58 @@ class AccommodationViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    //Fungsi untuk mengambil semua data penginapan dari Supabase//
     fun fetchAccommodations() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // Query ke tabel accommodations dengan sorting
                 val data = SupabaseClient.client.from("accommodations")
-                    .select()
+                    .select {
+                        // Urutkan berdasarkan created_at, data terbaru di atas
+                        order("created_at", Order.DESCENDING)
+                    }
                     .decodeList<Accommodation>()
 
+                // Update StateFlow dengan data baru
                 _accommodations.value = data
-                Log.d("AccommodationVM", "Berhasil fetch ${data.size} penginapan")
             } catch (e: Exception) {
+                // Tangani error dan simpan pesan error
                 _errorMessage.value = "Gagal mengambil data: ${e.message}"
-                Log.e("AccommodationVM", "Fetch Error: ${e.message}")
+                Log.e("AccommodationVM", "Fetch error: ${e.message}")
             } finally {
+                // Set loading ke false setelah selesai
                 _isLoading.value = false
             }
         }
     }
-
+    //Fungsi private untuk upload gambar ke Supabase Storage //
     private suspend fun uploadImage(imageUri: Uri, context: Context): String? {
         return try {
-            Log.d("AccommodationVM", "Mulai upload gambar: $imageUri")
-
+            // Baca file gambar menjadi ByteArray
             val byteArray = context.contentResolver.openInputStream(imageUri)?.use {
                 it.readBytes()
-            }
+            } ?: return null
 
-            if (byteArray == null) {
-                Log.e("AccommodationVM", "Gagal membaca file gambar")
-                return null
-            }
-
-            Log.d("AccommodationVM", "Ukuran file: ${byteArray.size} bytes")
-
-            // PENTING: Ganti "accomodation-images" dengan nama bucket yang benar di Supabase
+            // Nama bucket di Supabase Storage
             val bucketName = "accomodation-images"
+            // Generate nama file unik dengan UUID
             val fileName = "accommodations/${UUID.randomUUID()}.jpg"
 
+            // Akses bucket storage
             val bucket = SupabaseClient.client.storage.from(bucketName)
 
-            Log.d("AccommodationVM", "Upload ke bucket: $bucketName, path: $fileName")
-
+            // Upload file ke storage dan ambil URL publik
             bucket.upload(fileName, byteArray, upsert = false)
-
-            val publicUrl = bucket.publicUrl(fileName)
-            Log.d("AccommodationVM", "Upload berhasil! URL: $publicUrl")
-
-            publicUrl
+            bucket.publicUrl(fileName)
         } catch (e: Exception) {
-            Log.e("AccommodationVM", "Error upload gambar: ${e.message}", e)
-            Log.e("AccommodationVM", "Stack trace: ${e.stackTraceToString()}")
+            // Log error jika upload gagal
+            Log.e("AccommodationVM", "Upload error: ${e.message}")
             null
         }
     }
 
+    // Fungsi untuk menambahkan penginapan baru//
     fun addAccommodation(
         name: String,
         facilities: String,
@@ -96,16 +94,9 @@ class AccommodationViewModel : ViewModel() {
             try {
                 var finalImageUrl: String? = null
 
-                // 1. Upload gambar ke Storage
+                // 1. Upload gambar jika ada
                 if (imageUri != null) {
-                    Log.d("AccommodationVM", "Mencoba upload gambar...")
                     finalImageUrl = uploadImage(imageUri, context)
-
-                    if (finalImageUrl == null) {
-                        Log.w("AccommodationVM", "Gambar gagal diupload, melanjutkan tanpa gambar")
-                    }
-                } else {
-                    Log.d("AccommodationVM", "Tidak ada gambar yang dipilih")
                 }
 
                 // 2. Ambil user yang sedang login
@@ -114,42 +105,40 @@ class AccommodationViewModel : ViewModel() {
 
                 val currentUserId = currentUser.id
 
-                // 3. Konversi harga ke Int
+                // 3. Konversi harga dari String ke Int (default 0 jika gagal)
                 val priceValue = price.toIntOrNull() ?: 0
 
-                // 4. Buat objek Accommodation
+                // 4. Buat objek Accommodation baru
                 val newAccommodation = Accommodation(
-                    id = null,
+                    id = null, // ID akan di-generate otomatis oleh database
                     name = name,
                     facilities = facilities,
                     pricePerNight = priceValue,
-                    description = description.ifBlank { null },
+                    description = description.ifBlank { null }, // Null jika kosong
                     imageUrl = finalImageUrl,
-                    userId = currentUserId,
-                    createdAt = null
+                    userId = currentUserId, // ID user yang login
+                    createdAt = null // Timestamp akan di-generate otomatis
                 )
 
-                Log.d("AccommodationVM", "Data yang akan disimpan: $newAccommodation")
-
-                // 5. Insert ke Supabase
+                // 5. Insert data ke Supabase
                 SupabaseClient.client.from("accommodations")
                     .insert(newAccommodation)
 
-                Log.d("AccommodationVM", "Penginapan berhasil ditambahkan!")
-
-                // 6. Refresh list
+                // 6. Refresh list untuk mendapatkan data terbaru
                 fetchAccommodations()
 
             } catch (e: Exception) {
-                Log.e("AccommodationVM", "Error adding accommodation: ${e.message}", e)
-                Log.e("AccommodationVM", "Stack trace: ${e.stackTraceToString()}")
+                // Tangani error dan simpan pesan error
                 _errorMessage.value = "Gagal menambahkan penginapan: ${e.message}"
+                Log.e("AccommodationVM", "Add error: ${e.message}")
             } finally {
+                // Set loading ke false setelah selesai
                 _isLoading.value = false
             }
         }
     }
 
+    //Fungsi untuk mengupdate penginapan yang sudah ada//
     fun updateAccommodation(
         accommodationId: String,
         name: String,
@@ -163,21 +152,20 @@ class AccommodationViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // Default gunakan gambar lama
                 var finalImageUrl: String? = currentImageUrl
 
                 // 1. Upload gambar baru jika ada
                 if (imageUri != null) {
-                    Log.d("AccommodationVM", "Mencoba upload gambar baru...")
                     val uploadedUrl = uploadImage(imageUri, context)
 
+                    // Jika upload berhasil, gunakan URL baru
                     if (uploadedUrl != null) {
                         finalImageUrl = uploadedUrl
-                    } else {
-                        Log.w("AccommodationVM", "Upload gambar gagal, tetap menggunakan gambar lama")
                     }
                 }
 
-                // 2. Konversi harga ke Int
+                // 2. Konversi harga dari String ke Int
                 val priceValue = price.toIntOrNull() ?: 0
 
                 // 3. Buat objek Accommodation untuk update
@@ -188,32 +176,27 @@ class AccommodationViewModel : ViewModel() {
                     pricePerNight = priceValue,
                     description = description.ifBlank { null },
                     imageUrl = finalImageUrl,
-                    userId = null,
-                    createdAt = null
+                    userId = null, // userId tidak perlu diupdate
+                    createdAt = null // createdAt tidak perlu diupdate
                 )
 
-                Log.d("AccommodationVM", "ID yang diupdate: $accommodationId")
-                Log.d("AccommodationVM", "Data yang akan diupdate: $updatedAccommodation")
-
-                // 4. Update ke Supabase
+                // 4. Update data ke Supabase dengan filter by ID
                 SupabaseClient.client.from("accommodations")
                     .update(updatedAccommodation) {
                         filter {
-                            eq("id", accommodationId)
+                            eq("id", accommodationId) // Filter: hanya update data dengan ID ini
                         }
                     }
 
-                Log.d("AccommodationVM", "Penginapan berhasil diupdate!")
-
-                // 5. Refresh list
-                kotlinx.coroutines.delay(500)
+                // 5. Refresh list untuk mendapatkan data terbaru
                 fetchAccommodations()
 
             } catch (e: Exception) {
-                Log.e("AccommodationVM", "Error updating accommodation: ${e.message}", e)
-                Log.e("AccommodationVM", "Stack trace: ${e.stackTraceToString()}")
+                // Tangani error dan simpan pesan error
                 _errorMessage.value = "Gagal mengupdate penginapan: ${e.message}"
+                Log.e("AccommodationVM", "Update error: ${e.message}")
             } finally {
+                // Set loading ke false setelah selesai
                 _isLoading.value = false
             }
         }

@@ -1,6 +1,5 @@
 package com.example.nusantaraview.ui.accommodation
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,7 +7,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,66 +30,81 @@ import java.util.Locale
 fun AccommodationScreen(
     viewModel: AccommodationViewModel = viewModel()
 ) {
+    // State dari ViewModel
     val accommodations by viewModel.accommodations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    val scope = rememberCoroutineScope()
-    var currentUserId by remember { mutableStateOf<String?>(null) }
-
-    // Dialog tambah penginapan
+    // State untuk dialog
     var showAddDialog by remember { mutableStateOf(false) }
-
-    // Dialog edit penginapan
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedAccommodation by remember { mutableStateOf<Accommodation?>(null) }
 
+    // State untuk current user ID
+    val scope = rememberCoroutineScope()
+    var currentUserId by remember { mutableStateOf<String?>(null) }
+
+    // Fetch data saat pertama kali dibuka
     LaunchedEffect(Unit) {
         viewModel.fetchAccommodations()
-
         scope.launch {
             currentUserId = SupabaseClient.client.auth.currentUserOrNull()?.id
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        if (isLoading && accommodations.isEmpty()) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-        } else if (accommodations.isEmpty()) {
-            Text(
-                text = "Belum ada penginapan.\nTap tombol + untuk menambah.",
-                modifier = Modifier.align(Alignment.Center)
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(accommodations) { acc ->
-                    AccommodationItem(
-                        accommodation = acc,
-                        currentUserId = currentUserId,
-                        onEditClick = {
-                            selectedAccommodation = acc
-                            showEditDialog = true
-                        }
-                    )
+    // Main Layout dengan Scaffold
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showAddDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary) {
+                Icon(Icons.Default.Add, contentDescription = "Tambah Penginapan")
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // State 1: Loading dan list kosong
+            if (isLoading && accommodations.isEmpty()) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+            // State 2: List kosong setelah loading
+            else if (accommodations.isEmpty()) {
+                Text(
+                    text = "Belum ada penginapan.\nTap tombol + untuk menambah.",
+                    modifier = Modifier.align(Alignment.Center),
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
+            // State 3: Tampilkan list
+            else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(
+                        items = accommodations,
+                        key = { it.id ?: it.name } // Key untuk optimasi recomposition
+                    ) { accommodation ->
+                        AccommodationItem(
+                            accommodation = accommodation,
+                            currentUserId = currentUserId,
+                            onEditClick = {
+                                selectedAccommodation = accommodation
+                                showEditDialog = true
+                            }
+                        )
+                    }
                 }
             }
         }
-
-        // FAB tambah penginapan
-        FloatingActionButton(
-            onClick = { showAddDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Tambah Penginapan")
-        }
     }
 
+    // Dialog Add
     if (showAddDialog) {
         AddAccommodationDialog(
             onDismiss = { showAddDialog = false },
@@ -99,6 +112,7 @@ fun AccommodationScreen(
         )
     }
 
+    // Dialog Edit
     if (showEditDialog && selectedAccommodation != null) {
         EditAccommodationDialog(
             accommodation = selectedAccommodation!!,
@@ -115,8 +129,9 @@ fun AccommodationScreen(
 fun AccommodationItem(
     accommodation: Accommodation,
     currentUserId: String?,
-    onEditClick: () -> Unit = {}
+    onEditClick: () -> Unit
 ) {
+    // Cek apakah user adalah pemilik
     val isOwner = currentUserId != null && accommodation.userId == currentUserId
 
     Card(
@@ -124,6 +139,7 @@ fun AccommodationItem(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column {
+            // Image Section dengan Edit Button
             Box {
                 AsyncImage(
                     model = accommodation.imageUrl,
@@ -135,7 +151,7 @@ fun AccommodationItem(
                     error = rememberVectorPainter(Icons.Default.BrokenImage)
                 )
 
-                // Tombol Edit hanya muncul jika user adalah pemilik
+                // Edit Button - hanya tampil untuk owner
                 if (isOwner) {
                     IconButton(
                         onClick = onEditClick,
@@ -144,17 +160,18 @@ fun AccommodationItem(
                             .padding(8.dp)
                     ) {
                         Icon(
-                            Icons.Default.Edit,
+                            imageVector = Icons.Default.Edit,
                             contentDescription = "Edit Penginapan",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .size(32.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }
             }
 
+            // Content Section
             Column(modifier = Modifier.padding(12.dp)) {
+                // Nama Penginapan
                 Text(
                     text = accommodation.name,
                     style = MaterialTheme.typography.titleMedium,
@@ -165,6 +182,7 @@ fun AccommodationItem(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
+                // Fasilitas
                 Text(
                     text = accommodation.facilities,
                     style = MaterialTheme.typography.bodySmall,
@@ -174,7 +192,9 @@ fun AccommodationItem(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                val formattedPrice = NumberFormat.getNumberInstance(Locale("id", "ID"))
+                // Harga
+                val formattedPrice = NumberFormat
+                    .getNumberInstance(Locale("id", "ID"))
                     .format(accommodation.pricePerNight)
 
                 Text(
@@ -183,7 +203,9 @@ fun AccommodationItem(
                     color = MaterialTheme.colorScheme.secondary
                 )
 
+                // Label Owner
                 if (isOwner) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Penginapan milik Anda",
                         style = MaterialTheme.typography.bodySmall,
@@ -195,6 +217,7 @@ fun AccommodationItem(
     }
 }
 
+// Helper function untuk error image
 @Composable
 fun rememberVectorPainter(image: androidx.compose.ui.graphics.vector.ImageVector) =
     androidx.compose.ui.graphics.vector.rememberVectorPainter(image)

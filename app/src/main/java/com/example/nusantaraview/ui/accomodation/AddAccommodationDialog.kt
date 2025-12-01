@@ -27,10 +27,7 @@ import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.nusantaraview.data.model.Accommodation
 
-/**
- * Dialog untuk Tambah atau Edit Penginapan
- * @param accommodation jika null = mode tambah, jika ada data = mode edit
- */
+//Dialog untuk Tambah atau Edit Penginapan , accommodation jika null = mode tambah, jika ada data = mode edit //
 @Composable
 fun AccommodationDialog(
     accommodation: Accommodation? = null,
@@ -90,7 +87,6 @@ fun AccommodationDialog(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Prioritas tampilan: gambar baru > gambar lama > placeholder
                     val displayImage = imageUri ?: accommodation?.imageUrl
 
                     if (displayImage != null) {
