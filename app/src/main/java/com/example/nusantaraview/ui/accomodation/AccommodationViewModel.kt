@@ -192,11 +192,9 @@ class AccommodationViewModel : ViewModel() {
                 fetchAccommodations()
 
             } catch (e: Exception) {
-                // Tangani error dan simpan pesan error
                 _errorMessage.value = "Gagal mengupdate penginapan: ${e.message}"
                 Log.e("AccommodationVM", "Update error: ${e.message}")
             } finally {
-                // Set loading ke false setelah selesai
                 _isLoading.value = false
             }
         }

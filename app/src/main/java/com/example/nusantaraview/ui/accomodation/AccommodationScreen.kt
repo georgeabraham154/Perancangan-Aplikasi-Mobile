@@ -30,16 +30,13 @@ import java.util.Locale
 fun AccommodationScreen(
     viewModel: AccommodationViewModel = viewModel()
 ) {
-    // State dari ViewModel
     val accommodations by viewModel.accommodations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // State untuk dialog
     var showAddDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var selectedAccommodation by remember { mutableStateOf<Accommodation?>(null) }
 
-    // State untuk current user ID
     val scope = rememberCoroutineScope()
     var currentUserId by remember { mutableStateOf<String?>(null) }
 

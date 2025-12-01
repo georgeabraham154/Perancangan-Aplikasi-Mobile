@@ -27,7 +27,7 @@ import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.nusantaraview.data.model.Accommodation
 
-//Dialog untuk Tambah atau Edit Penginapan , accommodation jika null = mode tambah, jika ada data = mode edit //
+//Dialog edit dan add , accommodation jika null = mode tambah, jika ada data = mode edit //
 @Composable
 fun AccommodationDialog(
     accommodation: Accommodation? = null,
