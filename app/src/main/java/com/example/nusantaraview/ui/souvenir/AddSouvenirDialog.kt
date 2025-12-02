@@ -38,8 +38,6 @@ fun SouvenirDialog(
     var price by remember { mutableStateOf(souvenirToEdit?.price?.toString() ?: "") }
     var description by remember { mutableStateOf(souvenirToEdit?.description ?: "") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
-
-    // 👇 Default kosong kalau baru, biar user milih sendiri
     var category by remember { mutableStateOf(souvenirToEdit?.category ?: "") }
 
     var showError by remember { mutableStateOf(false) }
@@ -76,6 +74,7 @@ fun SouvenirDialog(
                         .clip(RoundedCornerShape(8.dp))
                         .background(Color.LightGray)
                         .clickable { photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        // Saat kotak diklik, luncurkan galeri (hanya gambar/ImageOnly)
                     contentAlignment = Alignment.Center
                 ) {
                     if (imageUri != null) {
@@ -138,9 +137,10 @@ fun SouvenirDialog(
                             showError = true
                             errorMessage = "Pilih jenis oleh-oleh dulu!"
                         } else {
-                            if (souvenirToEdit == null) {
+                            // Kalau lolos validasi, panggil ViewModel untuk proses data
+                            if (souvenirToEdit == null) { //ini untuk tambah/create
                                 viewModel.addSouvenir(itemName, storeName, price, description, imageUri, category, context)
-                            } else {
+                            } else { // ini untuk update
                                 viewModel.updateSouvenir(souvenirToEdit, itemName, storeName, price, description, imageUri, category, context)
                             }
                             onDismiss()

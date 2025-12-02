@@ -32,10 +32,18 @@ class SouvenirViewModel : ViewModel() {
 
     private suspend fun uploadImage(uri: Uri, context: Context): String? {
         return try {
+            // Membaca file gambar dari galeri HP menjadi kumpulan byte (010101).
             val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
-            val fileName = "souvenirs/${UUID.randomUUID()}.jpg"
+            val fileName = "souvenirs/${UUID.randomUUID()}.jpg" // Memberi nama unik pada file gambar (biar gak bentrok kalau ada yang upload gambar sama).
+            // UUID.randomUUID() menghasilkan string acak, misal: "a1b2-c3d4-e5f6.jpg"
+
+            // Menunjuk ke Bucket "souvenir-images" di Supabase Storage.
             val bucket = SupabaseClient.client.storage.from("souvenir-images")
+
+            // Proses Upload ke Cloud (Internet).
             bucket.upload(fileName, bytes, upsert = false)
+
+            // meminta Link Publiknya (https://...) buat disimpan di database.
             bucket.publicUrl(fileName)
         } catch (e: Exception) {
             Log.e("SouvenirVM", "Upload gagal: ${e.message}")
@@ -45,18 +53,18 @@ class SouvenirViewModel : ViewModel() {
 
     fun fetchSouvenirs() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isLoading.value = true //menyalakan load
             try {
-                val data = SupabaseClient.client
+                val data = SupabaseClient.client //meminta data ke tabel "souvenirs" di Supabase
                     .from("souvenirs")
                     .select()
                     .decodeList<Souvenir>()
                     .sortedByDescending { it.createdAt }
-                _souvenirList.value = data
+                _souvenirList.value = data //mengupdate data ke UI
             } catch (e: Exception) {
                 _errorMessage.value = "Gagal mengambil data: ${e.message}"
             } finally {
-                _isLoading.value = false
+                _isLoading.value = false //mematikan load (entah itu sukses atau gagal)
             }
         }
     }
@@ -67,15 +75,17 @@ class SouvenirViewModel : ViewModel() {
         price: String,
         description: String,
         imageUri: Uri?,
-        category: String, // 👈 Parameter Baru
+        category: String,
         context: Context
     ) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // cek user login
                 val currentUser = SupabaseClient.client.auth.currentUserOrNull()
                     ?: throw Exception("Anda harus login!")
 
+                // upload gambar dulu
                 var finalImageUrl: String? = null
                 if (imageUri != null) {
                     finalImageUrl = uploadImage(imageUri, context)
@@ -90,10 +100,13 @@ class SouvenirViewModel : ViewModel() {
                     description = description.ifBlank { null },
                     imageUrl = finalImageUrl,
                     userId = currentUser.id,
-                    category = category // 👈 Masuk DB
+                    category = category
                 )
 
+                //mengirim data ke supabase
                 SupabaseClient.client.from("souvenirs").insert(newItem)
+
+                //refresh data agar langsung muncul
                 fetchSouvenirs()
             } catch (e: Exception) {
                 _errorMessage.value = "Gagal tambah: ${e.message}"
@@ -110,7 +123,7 @@ class SouvenirViewModel : ViewModel() {
         newPrice: String,
         newDesc: String,
         newImageUri: Uri?,
-        newCategory: String, // 👈 Parameter Baru
+        newCategory: String,
         context: Context
     ) {
         viewModelScope.launch {
@@ -133,7 +146,7 @@ class SouvenirViewModel : ViewModel() {
                     price = priceInt,
                     description = newDesc.ifBlank { null },
                     imageUrl = finalImageUrl,
-                    category = newCategory // 👈 Update DB
+                    category = newCategory
                 )
 
                 SupabaseClient.client.from("souvenirs").update(updatedItem) {

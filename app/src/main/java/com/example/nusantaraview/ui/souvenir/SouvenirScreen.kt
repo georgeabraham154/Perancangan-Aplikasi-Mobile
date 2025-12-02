@@ -39,8 +39,9 @@ import java.util.Locale
 
 @Composable
 fun SouvenirScreen(
-    viewModel: SouvenirViewModel
+    viewModel: SouvenirViewModel // mengambil data dari viewmodel
 ) {
+    // Setiap kali _souvenirList di ViewModel berubah, variabel ini otomatis update.
     val souvenirList by viewModel.souvenirList.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
@@ -50,7 +51,7 @@ fun SouvenirScreen(
     var itemToEdit by remember { mutableStateOf<Souvenir?>(null) }
 
     LaunchedEffect(Unit) {
-        viewModel.fetchSouvenirs()
+        viewModel.fetchSouvenirs() // Meminta data terbaru
         scope.launch { currentUserId = SupabaseClient.client.auth.currentUserOrNull()?.id }
     }
 
@@ -63,7 +64,7 @@ fun SouvenirScreen(
         }
     ) { paddingValues ->
 
-        // GUNAKAN LAZY GRID SUPAYA HEADER DAN CARD MENYATU
+        // Lazygrid  (list yang bisa di scroll)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(160.dp),
             contentPadding = PaddingValues(16.dp),
@@ -142,10 +143,10 @@ fun TopSectionMap() {
                 .clickable {
                     // Intent ke Google Maps cari "Oleh oleh terdekat"
                     val gmmIntentUri = Uri.parse("geo:0,0?q=oleh+oleh+khas+terdekat")
-                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                    mapIntent.setPackage("com.google.android.apps.maps")
+                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri) //cuma mau "Melihat/Menampilkan" data, bukan mengedit atau menghapus.
+                    mapIntent.setPackage("com.google.android.apps.maps") //hanya dibuka di google maps
                     try {
-                        context.startActivity(mapIntent)
+                        context.startActivity(mapIntent) //mengarahkan langsung ke gmaps
                     } catch (e: Exception) {
                         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("http://googleusercontent.com/maps.google.com/search?q=oleh+oleh"))
                         context.startActivity(browserIntent)
@@ -190,6 +191,8 @@ fun SouvenirItemCard(
     currentUserId: String?,
     onEditClick: () -> Unit
 ) {
+    // Logic Penentu Hak Akses Edit:
+    // Apakah ID Saya (currentUserId) SAMA DENGAN ID Pembuat Barang (item.userId)?
     val isOwner = currentUserId != null && item.userId == currentUserId
 
     // LOGIKA ICON KATEGORI
