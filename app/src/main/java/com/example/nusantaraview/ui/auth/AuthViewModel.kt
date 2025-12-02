@@ -1,3 +1,5 @@
+// File: app/src/main/java/com/example/nusantaraview/ui/auth/AuthViewModel.kt
+
 package com.example.nusantaraview.ui.auth
 
 import android.util.Log
@@ -20,6 +22,11 @@ class AuthViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    // 👇 TAMBAHAN: Fungsi untuk cek session saat app dibuka
+    init {
+        checkLoginStatus()
+    }
+
     fun checkLoginStatus() {
         viewModelScope.launch {
             try {
@@ -32,6 +39,7 @@ class AuthViewModel : ViewModel() {
                 Log.d("AuthViewModel", "User Email: ${user?.email}")
                 Log.d("AuthViewModel", "==========================")
 
+                // 👇 SET STATE: Jika session & user ada = logged in
                 _isLoggedIn.value = session != null && user != null
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Check login error: ${e.message}")
@@ -62,7 +70,6 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "❌ Login FAILED: ${e.message}")
                 _authState.value = AuthState.Error
-                // Parse error message menjadi user-friendly
                 _errorMessage.value = parseErrorMessage(e.message)
             }
         }
@@ -86,7 +93,6 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "❌ Register FAILED: ${e.message}")
                 _authState.value = AuthState.Error
-                // Parse error message menjadi user-friendly
                 _errorMessage.value = parseErrorMessage(e.message)
             }
         }
@@ -101,6 +107,7 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "Logout error: ${e.message}")
             } finally {
+                // 👇 PENTING: Set ke false agar UI update
                 _isLoggedIn.value = false
                 _authState.value = AuthState.Idle
                 _errorMessage.value = null
@@ -113,37 +120,22 @@ class AuthViewModel : ViewModel() {
         _authState.value = AuthState.Idle
     }
 
-    /**
-     * Helper function untuk mengubah error message teknis menjadi user-friendly
-     */
     private fun parseErrorMessage(message: String?): String {
         return when {
             message == null -> "Terjadi kesalahan"
-
-            // Error invalid login credentials
             message.contains("Invalid login credentials", ignoreCase = true) ->
                 "Email atau password salah"
-
-            // Error email already registered
             message.contains("already registered", ignoreCase = true) ||
                     message.contains("User already registered", ignoreCase = true) ->
                 "Email sudah terdaftar"
-
-            // Error weak password
             message.contains("Password should be", ignoreCase = true) ->
                 "Password minimal 6 karakter"
-
-            // Error invalid email format
             message.contains("invalid email", ignoreCase = true) ||
                     message.contains("Unable to validate email", ignoreCase = true) ->
                 "Format email tidak valid"
-
-            // Error network/connection
             message.contains("network", ignoreCase = true) ||
                     message.contains("connection", ignoreCase = true) ->
                 "Koneksi internet bermasalah"
-
-            // Default: tampilkan pesan singkat
             else -> "Email atau password salah"
         }
     }

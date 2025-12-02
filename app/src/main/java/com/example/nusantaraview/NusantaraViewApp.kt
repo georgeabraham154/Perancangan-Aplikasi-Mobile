@@ -1,3 +1,5 @@
+// File: app/src/main/java/com/example/nusantaraview/NusantaraViewApp.kt
+
 import androidx.compose.runtime.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -5,7 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.nusantaraview.ui.auth.LoginScreen
 import com.example.nusantaraview.ui.auth.RegisterScreen
-import com.example.nusantaraview.ui.auth.EmailVerificationScreen // Pastikan di-import
+import com.example.nusantaraview.ui.auth.EmailVerificationScreen
 import com.example.nusantaraview.ui.auth.AuthViewModel
 import com.example.nusantaraview.ui.main.MainScreen
 
@@ -13,25 +15,39 @@ import com.example.nusantaraview.ui.main.MainScreen
 fun NusantaraViewApp() {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = viewModel()
+
+    // 👇 Observe status login
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
 
-    // Cek status login saat aplikasi dibuka
-    LaunchedEffect(Unit) {
-        authViewModel.checkLoginStatus()
+    // 👇 KUNCI: Set startDestination berdasarkan session
+    val startDestination = if (isLoggedIn) "main" else "login"
+
+    // 👇 LaunchedEffect untuk handle perubahan state login
+    LaunchedEffect(isLoggedIn) {
+        if (isLoggedIn) {
+            // User login → paksa ke main
+            navController.navigate("main") {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        } else {
+            // User logout → paksa ke login
+            navController.navigate("login") {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
     }
 
     NavHost(
         navController = navController,
-        // Jika isLoggedIn true, langsung ke main. Jika false, ke login.
-        startDestination = if (isLoggedIn) "main" else "login"
+        startDestination = startDestination
     ) {
-        // 1. Rute Login
         composable("login") {
             LoginScreen(
                 onLoginSuccess = {
-                    navController.navigate("main") {
-                        popUpTo("login") { inclusive = true }
-                    }
+                    // Navigasi sudah ditangani oleh LaunchedEffect di atas
+                    // Jadi callback ini bisa kosong
                 },
                 onNavigateToRegister = {
                     navController.navigate("register")
@@ -40,11 +56,9 @@ fun NusantaraViewApp() {
             )
         }
 
-        // 2. Rute Register
         composable("register") {
             RegisterScreen(
                 onRegisterSuccess = {
-                    // BERUBAH: Saat sukses register, jangan ke main, tapi ke halaman verifikasi
                     navController.navigate("verify_email")
                 },
                 onNavigateToLogin = {
@@ -54,11 +68,9 @@ fun NusantaraViewApp() {
             )
         }
 
-        // 3. Rute Baru: Verifikasi Email
         composable("verify_email") {
             EmailVerificationScreen(
                 onNavigateToLogin = {
-                    // Arahkan user kembali ke login agar mereka login manual
                     navController.navigate("login") {
                         popUpTo("verify_email") { inclusive = true }
                         popUpTo("register") { inclusive = true }
@@ -67,19 +79,11 @@ fun NusantaraViewApp() {
             )
         }
 
-        // 4. Rute Main (Home)
         composable("main") {
             MainScreen(
                 onLogout = {
-                    // 1. Panggil fungsi logout yang sudah diperbaiki
                     authViewModel.logout()
-
-                    // 2. Navigasi paksa ke Login dan hapus semua history layar sebelumnya
-                    navController.navigate("login") {
-                        // popUpTo(0) artinya hapus semua layar dari memori
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
-                    }
+                    // Navigasi ditangani oleh LaunchedEffect di atas
                 }
             )
         }
