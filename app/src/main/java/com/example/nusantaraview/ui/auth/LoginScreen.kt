@@ -1,3 +1,5 @@
+// File: app/src/main/java/com/example/nusantaraview/ui/auth/LoginScreen.kt
+
 package com.example.nusantaraview.ui.auth
 
 import androidx.compose.foundation.layout.*
@@ -30,7 +32,10 @@ fun LoginScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "Login", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            text = "Login",
+            style = MaterialTheme.typography.headlineMedium
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -113,11 +118,7 @@ fun LoginScreen(
             Text("Belum punya akun? Daftar")
         }
 
-        // Handle efek samping jika login sukses
-        LaunchedEffect(authState) {
-            if (authState is AuthState.Success) {
-                onLoginSuccess()
-            }
-        }
+        // CATATAN: Navigasi ke MainScreen sudah ditangani otomatis di NusantaraViewApp.kt
+        // Jadi tidak perlu LaunchedEffect di sini lagi
     }
 }
