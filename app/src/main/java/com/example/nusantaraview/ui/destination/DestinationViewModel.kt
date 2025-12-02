@@ -50,7 +50,7 @@ class DestinationViewModel : ViewModel() {
             val fileName = "destinations/${UUID.randomUUID()}.jpg"
             Log.d("DestinationVM", "📝 Nama file: $fileName")
 
-            // 3. 🎯 PENTING: Gunakan bucket 'destination-images' (BUKAN 'images')
+            // 3.  bucket 'destination-images'
             val bucket = SupabaseClient.client.storage.from("destination-images")
 
             // 4. Upload file ke Supabase Storage
