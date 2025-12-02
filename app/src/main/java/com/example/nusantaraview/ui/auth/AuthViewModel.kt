@@ -22,7 +22,7 @@ class AuthViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    // 👇 TAMBAHAN: Fungsi untuk cek session saat app dibuka
+    // Fungsi untuk cek session saat app dibuka
     init {
         checkLoginStatus()
     }
