@@ -99,7 +99,7 @@ fun AccommodationDialog(
                     val displayImage = imageUri ?: accommodation?.imageUrl
 
                     if (displayImage != null) {
-                        // Tampilkan preview FOTO
+                        // Tampilkan preview FOTO yang dipilih
                         AsyncImage(
                             model = displayImage,
                             contentDescription = "Selected Image",
